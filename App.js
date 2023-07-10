@@ -668,7 +668,7 @@ const App = () => {
 						<View
 							style={{
 								//backgroundColor: '#98fb98', // lighter shade of green
-                                backgroundColor: '#FF8C00',
+								backgroundColor: '#FF8C00',
 								width: `${totalWidth}%`,
 								height: barHeight,
 								borderRadius: barHeight / 2,
@@ -693,7 +693,7 @@ const App = () => {
 						<View
 							style={{
 								//backgroundColor: '#ff7f7f', // lighter shade of red
-                                backgroundColor: '#000000',
+								backgroundColor: '#000000',
 								width: `${expenseWidth}%`,
 								height: barHeight,
 								borderRadius: barHeight / 2,
@@ -875,7 +875,7 @@ const App = () => {
 		<View style={styles.container}>
 			<View style={styles.nav}>
 				<TopBar />
-                <View style = {styles.dummySection}/>
+				<View style={styles.dummySection} />
 				<View style={styles.navItemsContainer}>
 					{navItems.map((item, index) => (
 						<TouchableOpacity
@@ -1180,12 +1180,11 @@ const styles = StyleSheet.create({
 		display: 'none',
 	},
 	nav: {
-       
 		position: 'sticky',
 		zIndex: 998,
 		top: 0,
 		backgroundColor: '#E5E5E5',
-        
+
 		//paddingVertical: 10,
 	},
 	navTitle: {
@@ -1195,22 +1194,21 @@ const styles = StyleSheet.create({
 		textAlign: 'center',
 	},
 	dummySection: {
-        
 		backgroundColor: '#E5E5E5',
 		borderTopLeftRadius: 25,
 		borderTopRightRadius: 25,
-        borderTopWidth:1,
-        borderTopColor: '#E5E5E5',
+		borderTopWidth: 1,
+		borderTopColor: '#E5E5E5',
 		height: 20,
-        boxShadow: '0px -5px 5px 2px #FFFAF0',
+		boxShadow: '0px -5px 5px 2px #FFFAF0',
 	},
 	navItemsContainer: {
 		flexDirection: 'row',
 		alignItems: 'left',
 		flexWrap: 'wrap',
 		marginBottom: 10,
-        marginTop: -15,
-        //boxShadow: '100px -5px 5px 2px #FFFAF0',
+		marginTop: -15,
+		//boxShadow: '100px -5px 5px 2px #FFFAF0',
 	},
 	circleIcon: {
 		position: 'fixed',
@@ -1344,12 +1342,11 @@ const styles = StyleSheet.create({
 	},
 	pageContent: {
 		flex: 1,
-        backgroundColor: '#E5E5E5'
+		backgroundColor: '#E5E5E5',
 		//padding: 20,
 	},
 	content: {
-       
-        backgroundColor: '#E5E5E5',
+		backgroundColor: '#E5E5E5',
 		flex: 1,
 		padding: 7,
 	},
@@ -1400,7 +1397,7 @@ const styles = StyleSheet.create({
 
 	summaryContainer: {
 		//flex: 1,
-        //boxShadow: '0px -5px 5px 2px #FFFAF0',
+		//boxShadow: '0px -5px 5px 2px #FFFAF0',
 		flexDirection: 'column',
 		justifyContent: 'center',
 		shadowColor: '#000',
@@ -1697,8 +1694,8 @@ const styles = StyleSheet.create({
 		color: '#FF8C00',
 		fontFamily: 'YourCustomFont', // Customize the font
 		fontSize: 24, // Customize the font size
-        fontWeight: 'bold',
-        //textShadow: '0 0 5px #ffffff, 0 0 10px #ffffff, 0 0 20px #ffffff, 0 0 30px #ff00de',
+		fontWeight: 'bold',
+		//textShadow: '0 0 5px #ffffff, 0 0 10px #ffffff, 0 0 20px #ffffff, 0 0 30px #ff00de',
 	},
 	errorContainer: {
 		marginBottom: 10,
