@@ -14,7 +14,6 @@ import {
     UIManager,
 } from 'react-native';
 import { Calendar } from 'react-native-calendars';
-//import { TabView, SceneMap, TabBar } from 'react-native-tab-view';
 import { Dimensions, ScrollView } from 'react-native';
 import moment from 'moment';
 import { Chart, ArcElement } from 'chart.js';
@@ -39,7 +38,7 @@ const App = () => {
     const [showSummary, setShowSummary] = useState(true);
     const [shifted, setShifted] = useState(false);
     const [notes, setNotes] = useState('');
-    const [unhideNotes, setUnhideNotes] = useState({ 'House Rent': true ,  'Groceries': true });
+    const [unhideNotes, setUnhideNotes] = useState([{ 'House Rent': false }, { 'Groceries': false }]);
     const [showNotes, setShowNotes] = useState(false); // State variable to track showNotes
     const [showBudget, setShowBudget] = useState(false);
     const [index, setIndex] = useState(0);
@@ -52,7 +51,7 @@ const App = () => {
         { name: 'Groceries', dailyExpenses: {}, icon: 'shopping-basket', dailyNotes: {}, monthlyBudget: {} },
     ]);
     const [errorMsg, setErrorMsg] = useState('');
-
+    const [showDayTextBox, setShowDayTextBox] = useState(true);
     const [dateError, setDateError] = useState('');
     const [newPicker, setNewPicker] = useState('');
     const [itemError, setItemError] = useState('');
@@ -64,17 +63,18 @@ const App = () => {
     const [name, setName] = useState('');
     const [amount, setAmount] = useState('');
     const handleIconClick = () => {
-        setActiveTabIcon('budget')
         setShowNotes(true);
         setIsCalendarOpen(false);
         setIsGreyAreaClicked(true); // Add this line
+        console.log('Tab clicked. Active tab:', activeTab);
+
     };
 
     const handleBudgetIconClick = () => {
-        setActiveTabIcon('allocate')
         setShowBudget(true);
         setIsCalendarOpen(false);
-        setIsGreyAreaClicked(true); // Add this line
+        setIsGreyAreaClicked(true);
+
     };
     function Expenses() {
         return (
@@ -96,12 +96,8 @@ const App = () => {
         );
     }
 
-    if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
-        UIManager.setLayoutAnimationEnabledExperimental(true);
-    }
 
     const [showMore, setShowMore] = useState(false);
-    const [textHeight, setTextHeight] = useState(0)
 
     const toggleShowMore = () => {
         setShowMore(!showMore);
@@ -131,22 +127,27 @@ const App = () => {
         }
     };
 
-    function toggleNotes(name) {
-        
+    const toggleNotes = (name) => {
+        console.log('toggleNotes function is being called with name:', name);
 
-        const nextValue = !unhideNotes[name];  // calculate the next value first
+        const nextValue = !unhideNotes[name];
 
-        setUnhideNotes((prevNotes) => ({
-            ...prevNotes,
-            [name]: nextValue,  // use the next value here
-        }));
+        console.log('nextValue is:', nextValue);
 
-        Animated.timing(heightAnimation[name], {
-            toValue: nextValue ? 0 : 100,  // and also here
-            duration: 500,
+        setUnhideNotes((prevNotes) => {
+            console.log('prevNotes are:', prevNotes);
+            return {
+                ...prevNotes,
+                [name]: nextValue,
+            };
+        });
+
+        Animated.spring(heightAnimation[name], {
+            toValue: nextValue ? 0 : 1,
+            tension: 5,
             useNativeDriver: false,
         }).start();
-    }
+    };
 
     const handleDelete = () => {
         setNotes([]);
@@ -204,7 +205,6 @@ const App = () => {
     const [isGreyAreaClicked, setIsGreyAreaClicked] = useState(false);
 
     const handleGreyAreaPress = () => {
-        setActiveTabIcon(activeTab)
         setIsCalendarOpen(false);
         setIsGreyAreaClicked(false);
         setShowNotes(false); // Add this line
@@ -241,7 +241,6 @@ const App = () => {
     const [viewMode, setViewMode] = useState('month'); // week or month
     const [currentMonth, setCurrentMonth] = useState(moment().format('YYYY-MM')); // default to current month
     const [activeTab, setActiveTab] = useState('expenses');
-    const [activeTabIcon, setActiveTabIcon] = useState('expenses');
     const [isCalendarOpen, setIsCalendarOpen] = useState(false);
     const handleToggleCalendar = () => {
         setIsCalendarOpen(!isCalendarOpen);
@@ -460,42 +459,34 @@ const App = () => {
         return icon;
     };
     const handleAddNewItem = () => {
-		if (name.length > 25) {
-			setItemError('Item name should be less than 25 characters!');
-			return;
-		}
-		if (name.length <= 25 && itemError) {
-			setItemError('');
-		}
+        if (name.length > 25) {
+            setItemError('Item name should be less than 25 characters!');
+            return;
+        }
+        if (name.length <= 25 && itemError) {
+            setItemError('');
+        }
 
-		if (!navItems.find((item) => item.name.toLowerCase() === name.toLowerCase())) {
-			setNavItems((prevItems) => [
-				...prevItems,
-				{ name, dailyExpenses: {}, dailyNotes: {}, monthlyBudget: {}, icon: getFirstTwoLetters(name) },
-			]);
-			const updatedHeightAnimations = {...heightAnimation};
-			updatedHeightAnimations[name] = new Animated.Value(0);
-            console.log("=================== height animation=== add new item ====== ", name, updatedHeightAnimations)
-			setHeightAnimation(updatedHeightAnimations);
-
-            const updatedUnhideNotes = {...unhideNotes}
-            updatedUnhideNotes[updatedItem.name] = false;
-            setUnhideNotes(updatedUnhideNotes)
-			setName('');
-			//heightAnimation[name] = useRef(new Animated.Value(0)).current;
-		} else {
-			setItemError('Item name already exists!');
-		}
-	};
-      
-      const handleInputChange = (value) => {
-        if (value.length > 25) {
-          setItemError('Item name should be less than 25 characters!');
+        if (!navItems.find((item) => item.name.toLowerCase() === name.toLowerCase())) {
+            setNavItems((prevItems) => [
+                ...prevItems,
+                { name, dailyExpenses: {}, dailyNotes: {}, monthlyBudget: {}, icon: getFirstTwoLetters(name) },
+            ]);
+            setName('');
+            heightAnimation[name] = useRef(new Animated.Value(0)).current;
         } else {
-          setItemError('');
+            setItemError('Item name already exists!');
+        }
+    };
+
+    const handleInputChange = (value) => {
+        if (value.length > 25) {
+            setItemError('Item name should be less than 25 characters!');
+        } else {
+            setItemError('');
         }
         setName(value);
-      };
+    };
 
     const handleSubmitForm = () => {
         if (!date) {
@@ -531,24 +522,18 @@ const App = () => {
             };
 
             updatedNavItems[selectedItemIndex] = updatedItem;
-            
+            const updatedUnhideNotes = { ...unhideNotes };
+            updatedUnhideNotes[updatedItem.name] = false;
             setNavItems(updatedNavItems);
+            setUnhideNotes(updatedUnhideNotes);
             setAmount('');
             setNotes('');
             setShowNotes(false); // Hide the notes container
             setIsCalendarOpen(false); // Hide the calendar
             setIsGreyAreaClicked(false); // Reset the grey area click flag
+            console.log('Notes: ', notes);
+            console.log('Selected Date: ', selectedDate);
 
-            
-            // useEffect(() => {
-            // Object.keys(unhideNotes).forEach(itemName => {
-            // Animated.timing(heightAnimation, {
-            // toValue: unhideNotes[itemName] ? 100 : 0, // change to desired height
-            // duration: 500, // change the duration as you like
-            // useNativeDriver: false,
-            // }).start();
-            // });
-            // }, [unhideNotes]);
         }
     };
 
@@ -628,17 +613,8 @@ const App = () => {
         return monthlyBudget;
     };
     const slideAnim = useRef(new Animated.Value(-500)).current; // Initial value for x-offset; -500 slides it out of screen to the left
-    //const heightAnimation = { 'House Rent': useRef(new Animated.Value(0)).current, Groceries: useRef(new Animated.Value(0)).current };
-    const [heightAnimation, setHeightAnimation ] = useState({ "House Rent": new Animated.Value(0), "Groceries": new Animated.Value(0)})
-    // useEffect(() => {
-    // Object.keys(unhideNotes).forEach(itemName => {
-    // Animated.timing(heightAnimation, {
-    // toValue: unhideNotes[itemName] ? 100 : 0, // change to desired height
-    // duration: 500, // change the duration as you like
-    // useNativeDriver: false,
-    // }).start();
-    // });
-    // }, [unhideNotes]);
+    const heightAnimation = { 'House Rent': useRef(new Animated.Value(0)).current, Groceries: useRef(new Animated.Value(0)).current };
+
     useEffect(() => {
         Animated.spring(slideAnim, {
             toValue: 0,
@@ -646,15 +622,6 @@ const App = () => {
             useNativeDriver: true,
         }).start();
     }, []);
-
-
-    const onTextLayout = (name, e) => {
-        //if(heightAnimation[name] !== 0) return
-
-        let textHeight = e.nativeEvent.layout.height;
-        console.log(" onlayout event firing? -----", textHeight, "********* height animation", heightAnimation[name])
-        setTextHeight(textHeight)
-    }
 
 
     function BudgetBar({ budgetedAmount, expenseAmount }) {
@@ -749,119 +716,118 @@ const App = () => {
         );
     };
 
-    const itemAmountForDay = (amount) => {console.log(" ***** day amount ***** ", amount);return !amount ? 0 : amount }
     const dailyTotal = navItems.reduce((total, item) => total + (item.dailyExpenses[selectedDate] || 0), 0);
     const ExpensesScreen = () => (
-		<ScrollView style={styles.container}>
-			<View style={styles.content}>
-				{selectedDate && (
-					<View style={styles.summaryContainer}>
-						<View style={styles.summaryTitle}>
-							<Text style={styles.summaryTitleText}>{date + ' ' + month + ' ' + year}</Text>
-						</View>
-						{navItems.slice(0, itemsToShow).map((item, index) => (
-                            
-							<View style={styles.summaryContent}>
-								<View style={styles.summaryTile} key={index}>
-									<View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-										<Icon
-											name={item.icon}
-											size={item.name === 'Groceries' ? 20 : 25}
-											color="#89CFF0"
-											style={{ paddingRight: 10 }}
-										/>
-										<Text style={styles.summaryLabel}>{item.name}</Text>
-									</View>
-									 <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-										<Text style={styles.summaryAmount}>{'₹' + itemAmountForDay(item.dailyExpenses[selectedDate])}</Text>
-                                        { item.dailyNotes[selectedDate] &&	<TouchableOpacity onPress={() => toggleNotes(item.name)} style={{ marginLeft: 10 }}>
-											{console.log('&&&&', item.name)}
-											<Icon name="chevron-down" size={10} color="#000" />
-										</TouchableOpacity>}
-									</View>
-								</View>
-								
-									<Animated.View style={[styles.notesDisplayContainer, { height: heightAnimation[item.name], overflow: 'hidden' }]}>
-										<Text onLayout={(e) => onTextLayout(item.name, e)}  style={styles.notesText}>{item.dailyNotes[selectedDate]}</Text>
-									</Animated.View>
-								
-                            
-							</View>
-						))}
+        <ScrollView style={styles.container}>
+            <View style={styles.content}>
+                {selectedDate && (
+                    <View style={styles.summaryContainer}>
+                        <View style={styles.summaryTitle}>
+                            <Text style={styles.summaryTitleText}>{date + ' ' + month + ' ' + year}</Text>
+                        </View>
+                        {navItems.slice(0, itemsToShow).map((item, index) => (
+                            <View style={styles.summaryContent} key={index}>
+                                <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                                    {['Groceries', 'House Rent'].includes(item.name) ? (
+                                        <Icon name={item.icon} size={item.name === 'Groceries' ? 20 : 25} color="#89CFF0" style={{ paddingRight: 10 }} />
+                                    ) : (
+                                        <Text style={index === selectedItemIndex ? styles.iconselected : styles.icon}>
+                                            {getFirstTwoLetters(item.name)}
+                                        </Text>
+                                    )}
+                                    <Text style={styles.summaryLabel}>{item.name}</Text>
+                                </View>
+                                <View style={{ flexDirection: 'row', alignItems: 'center', position: 'absolute', marginLeft: 250 }}>
+                                    <Text style={styles.summaryAmount}>{'₹' + (item.dailyExpenses[selectedDate] || 0)}</Text>
+                                    <TouchableOpacity
+                                        onPress={() => {
+                                            console.log("selectedDate: ", selectedDate);
+                                            console.log("Notes for the date: ", item.dailyNotes[selectedDate]);
+                                            console.log("Press event fired for", item.name);
+                                            toggleNotes(item.name);
+                                        }}
+                                        style={{ marginLeft: 10 }}
+                                    >
+                                        {console.log("&&&&", item.name)}
+                                        <Icon name="chevron-down" size={10} color="#000" />
+                                    </TouchableOpacity>
+                                </View>
+                                <Animated.View style={[styles.notesContainer, { height: heightAnimation[item.name] }]}>
+                                    <View style={[styles.notesContainer]}>
+                                        <Text style={styles.notesText}>{item.dailyNotes[selectedDate]}</Text>
+                                    </View>
+                                </Animated.View>
+                            </View>
+                        ))}
 
-						<View>
-							{navItems.length > itemsToShow && (
-								<TouchableOpacity onPress={toggleShowMore}>
-									<Text style={{ color: '#89CFF0', alignItems: 'right' }}>Show More</Text>
-								</TouchableOpacity>
-							)}
-							{showMore && (
-								<TouchableOpacity onPress={toggleShowMore}>
-									<Text style={{ color: '#89CFF0', alignItems: 'right' }}>Show Less</Text>
-								</TouchableOpacity>
-							)}
-						</View>
-						<View style={styles.summaryTotal}>
-							<Text style={styles.summaryLabel}> Total:</Text>
-							<Text style={styles.summaryAmount}>{'₹' + dailyTotal}</Text>
-						</View>
-					</View>
-				)}
-				<View style={styles.summaryContainer}>
-					<View style={styles.summaryTitle}>
-						<Text style={styles.summaryTitleText}>{month + ', ' + year}</Text>
-					</View>
-					{navItems.slice(0, itemsToShow).map((item, index) => (
-						<View>
-							<View style={styles.monthSummaryContent} key={index}>
-								<View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-									{['Groceries', 'House Rent'].includes(item.name) ? (
-										<Icon
-											name={item.icon}
-											size={item.name === 'Groceries' ? 20 : 25}
-											color="#89CFF0"
-											style={{ paddingRight: 10 }}
-										/>
-									) : (
-										<Text style={index === selectedItemIndex ? styles.iconselected : styles.icon}>
-											{getFirstTwoLetters(item.name)}
-										</Text>
-									)}
-									<Text style={styles.summaryLabel}>{item.name}</Text>
-								</View>
-								<View style={{ flexDirection: 'row', alignItems: 'center' }}>
-									<Text style={styles.summaryAmount}>{'₹' + calculateItemTotalForMonth(currentMonth, index)}</Text>
-									<View style={{ width: 10 }} />
-								</View>
-							</View>
-							<View style={styles.summaryContent}>
-								<BudgetBar
-									budgetedAmount={calculateBudgetAmount(month + '-' + year, index)}
-									expenseAmount={calculateItemTotalForMonth(currentMonth, index)}
-								/>
-							</View>
-						</View>
-					))}
-					<View>
-						{navItems.length > itemsToShow && (
-							<TouchableOpacity onPress={toggleShowMore}>
-								<Text style={{ color: '#89CFF0', alignItems: 'right' }}>Show More</Text>
-							</TouchableOpacity>
-						)}
-						{showMore && (
-							<TouchableOpacity onPress={toggleShowMore}>
-								<Text style={{ color: '#89CFF0', alignItems: 'right' }}>Show Less</Text>
-							</TouchableOpacity>
-						)}
-						<View style={[styles.summaryContent, { marginBottom: 10 }]}>
-							<Text style={styles.summaryLabel}>Total:</Text>
-							<Text style={styles.summaryAmount}>{'₹' + calculateTotalForMonth(currentMonth)}</Text>
-						</View>
-					</View>
-				</View>
-			</View>
-		</ScrollView>
-	);
+                        <View>
+                            {navItems.length > itemsToShow && (
+                                <TouchableOpacity onPress={toggleShowMore}>
+                                    <Text style={{ color: '#89CFF0', alignItems: 'right' }}>Show More</Text>
+                                </TouchableOpacity>
+                            )}
+                            {showMore && (
+                                <TouchableOpacity onPress={toggleShowMore}>
+                                    <Text style={{ color: '#89CFF0', alignItems: 'right' }}>Show Less</Text>
+                                </TouchableOpacity>
+                            )}
+                        </View>
+                        <View style={styles.summarytotalContent}>
+                            <Text style={styles.summaryLabel}> Total:</Text>
+                            <Text style={styles.summaryAmount}>{'₹' + dailyTotal}</Text>
+                        </View>
+                    </View>
+                )}
+                <View style={styles.summaryContainer}>
+                    <View style={styles.summaryTitle}>
+                        <Text style={styles.summaryTitleText}>{month + ', ' + year}</Text>
+                    </View>
+                    {navItems.slice(0, itemsToShow).map((item, index) => (
+                        <View >
+                            <View style={styles.monthSummaryContent} key={index}>
+                                <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                                    {['Groceries', 'House Rent'].includes(item.name) ? (
+                                        <Icon name={item.icon} size={item.name === 'Groceries' ? 20 : 25} color="#89CFF0" style={{ paddingRight: 10 }} />
+                                    ) : (
+                                        <Text style={index === selectedItemIndex ? styles.iconselected : styles.icon}>
+                                            {getFirstTwoLetters(item.name)}
+                                        </Text>
+                                    )}
+                                    <Text style={styles.summaryLabel}>{item.name}</Text>
+                                </View>
+                                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+
+                                    <Text style={styles.summaryAmount}>{'₹' + calculateItemTotalForMonth(currentMonth, index)}</Text>
+                                    <View style={{ width: 10 }} />
+                                </View>
+
+                            </View>
+                            <View style={styles.summaryContent}>
+                                <BudgetBar budgetedAmount={calculateBudgetAmount(month + '-' + year, index)} expenseAmount={calculateItemTotalForMonth(currentMonth, index)} />
+                            </View>
+                        </View>
+                    ))}
+                    <View>
+
+                        {navItems.length > itemsToShow && (
+                            <TouchableOpacity onPress={toggleShowMore}>
+                                <Text style={{ color: '#89CFF0', alignItems: 'right' }}>Show More</Text>
+                            </TouchableOpacity>
+                        )}
+                        {showMore && (
+                            <TouchableOpacity onPress={toggleShowMore}>
+                                <Text style={{ color: '#89CFF0', alignItems: 'right' }}>Show Less</Text>
+                            </TouchableOpacity>
+                        )}
+                        <View style={[styles.summarytotalContent, { marginBottom: 10 }]}>
+                            <Text style={styles.summaryLabel}>Total:</Text>
+                            <Text style={styles.summaryAmount}>{'₹' + calculateTotalForMonth(currentMonth)}</Text>
+                        </View>
+                    </View>
+                </View>
+            </View>
+        </ScrollView>
+    );
 
     return (
         <View style={styles.container}>
@@ -869,7 +835,7 @@ const App = () => {
                 <TopBar />
 
                 <View style={styles.navItemsContainer}>
-                    {navItems.map((item, index) => (
+                    {navItems.slice(0, itemsToShow).map((item, index) => (
                         <TouchableOpacity
                             key={index}
                             style={[styles.navItem, index === selectedItemIndex ? styles.navItemSelected : {}]}
@@ -893,6 +859,16 @@ const App = () => {
                         </TouchableOpacity>
                     ))}
                     <TextInput value={name} onChangeText={handleInputChange} placeholder="New item" style={styles.input} onSubmitEditing={handleAddNewItem} />
+                    {navItems.length > itemsToShow && (
+                        <TouchableOpacity onPress={toggleShowMore}>
+                            <Text style={{ color: '#89CFF0', alignItems: 'center' }}>Show More</Text>
+                        </TouchableOpacity>
+                    )}
+                    {showMore && (
+                        <TouchableOpacity onPress={toggleShowMore}>
+                            <Text style={{ color: '#89CFF0', alignItems: 'center' }}>Show Less</Text>
+                        </TouchableOpacity>
+                    )}
                 </View>
                 {itemError && <Text style={styles.errorText}>{itemError}</Text>}
 
@@ -904,7 +880,7 @@ const App = () => {
                         }}
                     >
                         <View style={styles.dateInputContainer}>
-                            {activeTabIcon !== 'stats' && (
+                            {(activeTab === 'expenses' || activeTab === 'allocate' || activeTab === 'budget') && (
                                 <TextInput
                                     style={styles.dateInput}
                                     placeholder="Date"
@@ -954,7 +930,7 @@ const App = () => {
                                 </View>
                             </TouchableWithoutFeedback>
 
-                            {activeTabIcon === 'stats' && (
+                            {activeTab === 'stats' && (
                                 <TouchableWithoutFeedback onPress={() => { }}>
                                     <View style={styles.dateInput}>
                                         <Picker
@@ -1097,43 +1073,38 @@ const App = () => {
                         </>
                     )}
 
-                    {activeTab === 'expenses' && <Expenses />}
-                    {activeTab === 'stats' && <Stats />}
+                    {activeTab !== 'stats' && <Expenses />}
+                    {activeTab !== 'expenses' && <Stats />}
 
                     <View style={styles.bottomTabs}>
-                        <TouchableOpacity style={[styles.bottomTab]} onPress={handleBudgetIconClick}>
-                            <Ionicons name="pricetag-outline" size={24} color={activeTabIcon === 'allocate' ? '#000' : '#999'} />
+                        <TouchableOpacity style={[styles.bottomTab]} onPress={handleBudgetIconClick} >
+                            <Ionicons name="pricetag-outline" size={24} color={activeTab === 'stats' ? '#000' : '#999'} />
                             <Text style={styles.tabLabel}>Allocate</Text>
                         </TouchableOpacity>
                         <TouchableOpacity
                             style={[styles.bottomTab, activeTab === 'expenses' && styles.activeTab]}
-                            onPress={() => {setActiveTab('expenses'); setActiveTabIcon('expenses')}}
+                            onPress={() => {
+                                setActiveTab('expenses');
+                                console.log('Tab clicked. Active tab:', activeTab);
+
+                            }
+                            }
                         >
-                            <Ionicons name="wallet-outline" size={24} color={activeTabIcon === 'expenses' ? '#000' : '#999'} />
+                            <Ionicons name="wallet-outline" size={24} color={activeTab === 'expenses' ? '#000' : '#999'} />
                             <Text style={styles.tabLabel}>Budget</Text>
                         </TouchableOpacity>
-                        <TouchableOpacity style={[styles.bottomTab, activeTab === 'stats' && styles.activeTab]} onPress={() => {setActiveTab('stats'); setActiveTabIcon('stats')}}>
-                            <Ionicons name="stats-chart-outline" size={24} color={activeTabIcon === 'stats' ? '#000' : '#999'} />
+                        <TouchableOpacity style={[styles.bottomTab, activeTab === 'stats' && styles.activeTab]} onPress={() => setActiveTab('stats')}>
+                            <Ionicons name="stats-chart-outline" size={24} color={activeTab === 'stats' ? '#000' : '#999'} />
                             <Text style={styles.tabLabel}>Stats</Text>
                         </TouchableOpacity>
                         <TouchableOpacity style={[styles.bottomTab]} onPress={handleIconClick}>
-                            <Ionicons name="card-outline" size={24} color={activeTabIcon === 'budget' ? '#000' : '#999'} />
+                            <Ionicons name="card-outline" size={24} color={activeTab === 'stats' ? '#000' : '#999'} />
                             <Text style={styles.tabLabel}>Expenses</Text>
                         </TouchableOpacity>
                     </View>
                 </View>
             )}
 
-            {/* <TouchableOpacity onPress={handleIconClick} style={styles.circleIcon}>
- <View style={styles.circleBackground}>
- <Icon name="plus" size={44} color="white" />
- </View>
- </TouchableOpacity>
- <TouchableOpacity onPress={handleBudgetIconClick} style={styles.circleBudgetIcon}>
- <View style={styles.circleBackground}>
- <Icon name="plus" size={44} color="white" />
- </View>
- </TouchableOpacity> */}
         </View>
     );
 };
@@ -1141,7 +1112,7 @@ const App = () => {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: 'white',
+        backgroundColor: '#FFFFFF',
     },
     modalOverlay: {
         position: 'absolute',
@@ -1210,6 +1181,7 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         borderRadius: 5,
         margin: 5,
+        height: 40,
     },
     navItemSelected: {
         // backgroundColor: '#aaa',
@@ -1223,13 +1195,10 @@ const styles = StyleSheet.create({
     notesContainer: {
         padding: 10,
         paddingVertical: 12,
-        marginTop: 10,
+        //marginTop: 3,
         paddingLeft: 3.5,
-        
+
         // Add any other styles specific to the notes container
-    },
-    notesDisplayContainer:{
-        paddingLeft: 3.5,
     },
     calendarContainerAbove: {
         //position: "absolute",
@@ -1287,7 +1256,7 @@ const styles = StyleSheet.create({
         borderRadius: 5,
     },
     iconRightMargin: {
-        marginRight: 5, // Adjust the spacing as desired
+        marginRight: 5,
     },
     navSelectedText: {
         fontSize: 16,
@@ -1295,7 +1264,9 @@ const styles = StyleSheet.create({
         fontWeight: 'bold',
     },
     navText: {
-        fontSize: 16,
+        fontSize: 20,
+        fontFamily: 'Fasthand',
+
     },
     input: {
         width: 100,
@@ -1318,10 +1289,13 @@ const styles = StyleSheet.create({
     icon: {
         color: '#89CFF0',
         padding: 5,
+        fontWeight: 'bold',
+
     },
     iconselected: {
         padding: 5,
         color: 'white',
+        fontWeight: 'bold'
     },
     iconContainer: {
         flexDirection: 'row',
@@ -1346,6 +1320,7 @@ const styles = StyleSheet.create({
     formTitle: {
         fontSize: 24,
         fontWeight: 'bold',
+        fontFamily: 'Fasthand',
         marginBottom: 20,
     },
     calendarContainer: {
@@ -1361,7 +1336,7 @@ const styles = StyleSheet.create({
     },
 
     summaryContainer: {
-        //flex: 1,
+        flex: 1,
         flexDirection: 'column',
         justifyContent: 'center',
         shadowColor: '#000',
@@ -1446,23 +1421,9 @@ const styles = StyleSheet.create({
         color: 'white', // text color
         textAlign: 'center',
     },
-	summaryTile: {
+    summaryContent: {
         flex: 1,
         flexDirection: 'row',
-        marginBottom: 10,
-        justifyContent: 'space-between',
-        //width: 310,
-        marginRight: 5,
-        marginLeft: 0,
-        backgroundColor: 'white',
-        padding: 10,
-        // borderBottomWidth: 1, // Add a border at the bottom
-        // borderBottomColor: 'rgba(0, 0, 0, 0.25)', // Specify the color for the border
-        elevation: 0,
-    },
-    summaryContent: {
-        //flex: 1,
-        flexDirection: 'column',
         marginBottom: 10,
         justifyContent: 'space-between',
         //width: 310,
@@ -1474,24 +1435,22 @@ const styles = StyleSheet.create({
         borderBottomColor: 'rgba(0, 0, 0, 0.25)', // Specify the color for the border
         elevation: 0,
     },
-    monthSummaryContent: {
+    summarytotalContent: {
         flex: 1,
         flexDirection: 'row',
-        //marginBottom: 10,
+        marginBottom: 10,
         justifyContent: 'space-between',
         //width: 310,
         marginRight: 5,
         marginLeft: 0,
         backgroundColor: 'white',
         padding: 10,
-        borderBottomWidth: 0, // Add a border at the bottom
-        borderBottomColor: 'rgba(0, 0, 0, 0.25)', // Specify the color for the border
         elevation: 0,
     },
-    summaryTotal: {
+    monthSummaryContent: {
         flex: 1,
         flexDirection: 'row',
-        marginBottom: 10,
+        //marginBottom: 10,
         justifyContent: 'space-between',
         //width: 310,
         marginRight: 5,
@@ -1585,10 +1544,10 @@ const styles = StyleSheet.create({
         borderWidth: 0,
         margin: 0,
         padding: 0,
+        height: 40,
     },
     pickerWithValue: {
         borderWidth: 0,
-        // Remove the border when there is a value
     },
 
     bottomTabs: {
@@ -1672,3 +1631,4 @@ const styles = StyleSheet.create({
 });
 
 export default App;
+
