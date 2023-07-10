@@ -114,7 +114,7 @@ const App = () => {
 		return (
 			<View style={styles.topBar}>
 				<Text style={styles.logo}>Expense Tracker</Text>
-				<View style={styles.shineEffect} />
+				{/* <View style={styles.shineEffect} /> */}
 			</View>
 		);
 	};
@@ -654,7 +654,7 @@ const App = () => {
 
 	function BudgetBar({ budgetedAmount, expenseAmount }) {
 		const totalWidth = 100; // the total width of the bar in pixels
-		const barHeight = 18; // the height of the bar in pixels
+		const barHeight = 9; // the height of the bar in pixels
 		const overlap = 2; // the overlapping width in pixels
 
 		const expenseWidth = expenseAmount <= budgetedAmount ? (expenseAmount / budgetedAmount) * totalWidth : totalWidth;
@@ -667,7 +667,8 @@ const App = () => {
 					{budgetedAmount > 0 && (
 						<View
 							style={{
-								backgroundColor: '#98fb98', // lighter shade of green
+								//backgroundColor: '#98fb98', // lighter shade of green
+                                backgroundColor: '#FF8C00',
 								width: `${totalWidth}%`,
 								height: barHeight,
 								borderRadius: barHeight / 2,
@@ -691,7 +692,8 @@ const App = () => {
 					{expenseAmount > 0 && (
 						<View
 							style={{
-								backgroundColor: '#ff7f7f', // lighter shade of red
+								//backgroundColor: '#ff7f7f', // lighter shade of red
+                                backgroundColor: '#000000',
 								width: `${expenseWidth}%`,
 								height: barHeight,
 								borderRadius: barHeight / 2,
@@ -771,7 +773,7 @@ const App = () => {
 										<Icon
 											name={item.icon}
 											size={item.name === 'Groceries' ? 20 : 25}
-											color="#89CFF0"
+											color="#FF8C00"
 											style={{ paddingRight: 10 }}
 										/>
 										<Text style={styles.summaryLabel}>{item.name}</Text>
@@ -798,12 +800,12 @@ const App = () => {
 						<View>
 							{navItems.length > itemsToShow && (
 								<TouchableOpacity onPress={toggleShowMore}>
-									<Text style={{ color: '#89CFF0', alignItems: 'right' }}>Show More</Text>
+									<Text style={{ color: '#FF8C00', alignItems: 'right' }}>Show More</Text>
 								</TouchableOpacity>
 							)}
 							{showMore && (
 								<TouchableOpacity onPress={toggleShowMore}>
-									<Text style={{ color: '#89CFF0', alignItems: 'right' }}>Show Less</Text>
+									<Text style={{ color: '#FF8C00', alignItems: 'right' }}>Show Less</Text>
 								</TouchableOpacity>
 							)}
 						</View>
@@ -825,7 +827,7 @@ const App = () => {
 										<Icon
 											name={item.icon}
 											size={item.name === 'Groceries' ? 20 : 25}
-											color="#89CFF0"
+											color="#FF8C00"
 											style={{ paddingRight: 10 }}
 										/>
 									) : (
@@ -851,12 +853,12 @@ const App = () => {
 					<View>
 						{navItems.length > itemsToShow && (
 							<TouchableOpacity onPress={toggleShowMore}>
-								<Text style={{ color: '#89CFF0', alignItems: 'right' }}>Show More</Text>
+								<Text style={{ color: '#FF8C00', alignItems: 'right' }}>Show More</Text>
 							</TouchableOpacity>
 						)}
 						{showMore && (
 							<TouchableOpacity onPress={toggleShowMore}>
-								<Text style={{ color: '#89CFF0', alignItems: 'right' }}>Show Less</Text>
+								<Text style={{ color: '#FF8C00', alignItems: 'right' }}>Show Less</Text>
 							</TouchableOpacity>
 						)}
 						<View style={[styles.summaryContent, { marginBottom: 10 }]}>
@@ -873,7 +875,7 @@ const App = () => {
 		<View style={styles.container}>
 			<View style={styles.nav}>
 				<TopBar />
-
+                <View style = {styles.dummySection}/>
 				<View style={styles.navItemsContainer}>
 					{navItems.map((item, index) => (
 						<TouchableOpacity
@@ -889,7 +891,7 @@ const App = () => {
 								<Icon
 									name={item.icon}
 									size={item.name === 'Groceries' ? 20 : 25}
-									color="#89CFF0"
+									color="#FF8C00"
 									style={index === selectedItemIndex ? styles.iconselected : styles.icon}
 								/>
 							) : (
@@ -1178,10 +1180,12 @@ const styles = StyleSheet.create({
 		display: 'none',
 	},
 	nav: {
+       
 		position: 'sticky',
 		zIndex: 998,
 		top: 0,
-		backgroundColor: '#F5F5F5',
+		backgroundColor: '#E5E5E5',
+        
 		//paddingVertical: 10,
 	},
 	navTitle: {
@@ -1190,11 +1194,23 @@ const styles = StyleSheet.create({
 		marginBottom: 20,
 		textAlign: 'center',
 	},
+	dummySection: {
+        
+		backgroundColor: '#E5E5E5',
+		borderTopLeftRadius: 25,
+		borderTopRightRadius: 25,
+        borderTopWidth:1,
+        borderTopColor: '#E5E5E5',
+		height: 20,
+        boxShadow: '0px -5px 5px 2px #FFFAF0',
+	},
 	navItemsContainer: {
 		flexDirection: 'row',
 		alignItems: 'left',
 		flexWrap: 'wrap',
 		marginBottom: 10,
+        marginTop: -15,
+        //boxShadow: '100px -5px 5px 2px #FFFAF0',
 	},
 	circleIcon: {
 		position: 'fixed',
@@ -1207,7 +1223,7 @@ const styles = StyleSheet.create({
 		width: 100,
 		height: 100,
 		borderRadius: 70,
-		backgroundColor: '#89CFF0',
+		backgroundColor: '#FF8C00',
 		justifyContent: 'center',
 		alignItems: 'center',
 		opacity: '50%',
@@ -1232,7 +1248,7 @@ const styles = StyleSheet.create({
 	},
 	navItemSelected: {
 		// backgroundColor: '#aaa',
-		backgroundColor: '#89CFF0',
+		backgroundColor: '#FF8C00',
 	},
 	shiftedExpenseStatsBar: {
 		marginTop: 800, // Adjust the margin top as needed
@@ -1328,14 +1344,17 @@ const styles = StyleSheet.create({
 	},
 	pageContent: {
 		flex: 1,
+        backgroundColor: '#E5E5E5'
 		//padding: 20,
 	},
 	content: {
+       
+        backgroundColor: '#E5E5E5',
 		flex: 1,
 		padding: 7,
 	},
 	icon: {
-		color: '#89CFF0',
+		color: '#FF8C00',
 		padding: 5,
 	},
 	iconselected: {
@@ -1381,6 +1400,7 @@ const styles = StyleSheet.create({
 
 	summaryContainer: {
 		//flex: 1,
+        //boxShadow: '0px -5px 5px 2px #FFFAF0',
 		flexDirection: 'column',
 		justifyContent: 'center',
 		shadowColor: '#000',
@@ -1457,7 +1477,7 @@ const styles = StyleSheet.create({
 		alignSelf: 'stretch',
 		justifyContent: 'center',
 		color: 'white', // text color
-		backgroundColor: '#AFDFE4', // background color
+		backgroundColor: '#FF8C00', // background color
 	},
 	summaryTitleText: {
 		fontSize: 18,
@@ -1536,12 +1556,12 @@ const styles = StyleSheet.create({
 	},
 	submitButton: {
 		marginRight: 10,
-		backgroundColor: '#89CFF0',
+		backgroundColor: '#FF8C00',
 	},
 	cancelButton: {
 		marginLeft: 10,
 		backgroundColor: 'white',
-		borderColor: '#89CFF0',
+		borderColor: '#FF8C00',
 		borderWidth: 2,
 	},
 	buttonText: {
@@ -1549,7 +1569,7 @@ const styles = StyleSheet.create({
 		fontWeight: 'bold',
 	},
 	cancelbuttonText: {
-		color: '#89CFF0',
+		color: '#FF8C00',
 		fontWeight: 'bold',
 	},
 	calendarHeader: {
@@ -1562,7 +1582,7 @@ const styles = StyleSheet.create({
 		fontSize: 50,
 	},
 	selectedDateBackground: {
-		backgroundColor: '#89CFF0',
+		backgroundColor: '#FF8C00',
 	},
 	tabBar: {
 		flexDirection: 'row',
@@ -1581,7 +1601,7 @@ const styles = StyleSheet.create({
 	},
 	activeTab: {
 		borderBottomWidth: 4,
-		borderBottomColor: '#89CFF0',
+		borderBottomColor: '#FF8C00',
 	},
 	inactiveTab: {
 		borderBottomWidth: 1,
@@ -1645,16 +1665,16 @@ const styles = StyleSheet.create({
 	},
 
 	topBar: {
-		backgroundColor: '#89CFF0',
-		height: 50,
+		backgroundColor: '#000000',
+		height: 70,
 		justifyContent: 'center',
 		alignItems: 'center',
-		shadowColor: 'grey', // Customize the light color
+		shadowColor: 'white', // Customize the light color
 		shadowOffset: { width: 0, height: 4 },
 		shadowOpacity: 0.5,
 		shadowRadius: 4,
 		elevation: 5,
-		marginBottom: 10,
+		marginBottom: -15,
 	},
 	shineEffect: {
 		position: 'absolute',
@@ -1669,9 +1689,16 @@ const styles = StyleSheet.create({
 		fontSize: 12,
 	},
 	logo: {
-		color: '#FFFFFF',
+		position: 'absolute',
+		top: '30%',
+		transform: 'translateY(-30%)',
+		width: '100%',
+		textAlign: 'center',
+		color: '#FF8C00',
 		fontFamily: 'YourCustomFont', // Customize the font
 		fontSize: 24, // Customize the font size
+        fontWeight: 'bold',
+        //textShadow: '0 0 5px #ffffff, 0 0 10px #ffffff, 0 0 20px #ffffff, 0 0 30px #ff00de',
 	},
 	errorContainer: {
 		marginBottom: 10,
