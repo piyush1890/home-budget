@@ -12,8 +12,11 @@ import {
     Picker,
     Platform,
     UIManager,
+    Modal,
+    TouchableHighlight,
 } from 'react-native';
 import { Calendar } from 'react-native-calendars';
+//import { TabView, SceneMap, TabBar } from 'react-native-tab-view';
 import { Dimensions, ScrollView } from 'react-native';
 import moment from 'moment';
 import { Chart, ArcElement } from 'chart.js';
@@ -38,9 +41,10 @@ const App = () => {
     const [showSummary, setShowSummary] = useState(true);
     const [shifted, setShifted] = useState(false);
     const [notes, setNotes] = useState('');
-    const [unhideNotes, setUnhideNotes] = useState([{ 'House Rent': false }, { 'Groceries': false }]);
+    const [unhideNotes, setUnhideNotes] = useState({ 'House Rent': true, Groceries: true });
     const [showNotes, setShowNotes] = useState(false); // State variable to track showNotes
     const [showBudget, setShowBudget] = useState(false);
+    const [showTooltip, setShowTooltip] = useState(true);
     const [index, setIndex] = useState(0);
     const [routes] = useState([
         { key: 'first', title: 'Expenses' },
@@ -51,7 +55,8 @@ const App = () => {
         { name: 'Groceries', dailyExpenses: {}, icon: 'shopping-basket', dailyNotes: {}, monthlyBudget: {} },
     ]);
     const [errorMsg, setErrorMsg] = useState('');
-    const [showDayTextBox, setShowDayTextBox] = useState(true);
+    const [modalVisible, setModalVisible] = useState(false);
+    const [yearSelectedFromPicker, setYearSelectedFromPicker] = useState(moment().year());
     const [dateError, setDateError] = useState('');
     const [newPicker, setNewPicker] = useState('');
     const [itemError, setItemError] = useState('');
@@ -63,18 +68,19 @@ const App = () => {
     const [name, setName] = useState('');
     const [amount, setAmount] = useState('');
     const handleIconClick = () => {
+        setActiveTabIcon('budget');
         setShowNotes(true);
         setIsCalendarOpen(false);
         setIsGreyAreaClicked(true); // Add this line
-        console.log('Tab clicked. Active tab:', activeTab);
-
     };
+    const [timePeriod, setTimePeriod] = useState('Month'); // set initial value as 'Month'
 
     const handleBudgetIconClick = () => {
+        setActiveTabIcon('allocate');
         setShowBudget(true);
+        setModalVisible(true); // this line triggers the tooltip modal to be displayed
         setIsCalendarOpen(false);
-        setIsGreyAreaClicked(true);
-
+        setIsGreyAreaClicked(true); // Add this line
     };
     function Expenses() {
         return (
@@ -96,8 +102,12 @@ const App = () => {
         );
     }
 
+    if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+        UIManager.setLayoutAnimationEnabledExperimental(true);
+    }
 
     const [showMore, setShowMore] = useState(false);
+    const [textHeight, setTextHeight] = useState(0);
 
     const toggleShowMore = () => {
         setShowMore(!showMore);
@@ -110,7 +120,7 @@ const App = () => {
         return (
             <View style={styles.topBar}>
                 <Text style={styles.logo}>Expense Tracker</Text>
-                <View style={styles.shineEffect} />
+                {/* <View style={styles.shineEffect} /> */}
             </View>
         );
     };
@@ -127,27 +137,20 @@ const App = () => {
         }
     };
 
-    const toggleNotes = (name) => {
-        console.log('toggleNotes function is being called with name:', name);
+    function toggleNotes(name) {
+        const nextValue = !unhideNotes[name]; // calculate the next value first
 
-        const nextValue = !unhideNotes[name];
+        setUnhideNotes((prevNotes) => ({
+            ...prevNotes,
+            [name]: nextValue, // use the next value here
+        }));
 
-        console.log('nextValue is:', nextValue);
-
-        setUnhideNotes((prevNotes) => {
-            console.log('prevNotes are:', prevNotes);
-            return {
-                ...prevNotes,
-                [name]: nextValue,
-            };
-        });
-
-        Animated.spring(heightAnimation[name], {
-            toValue: nextValue ? 0 : 1,
-            tension: 5,
+        Animated.timing(heightAnimation[name], {
+            toValue: nextValue ? 0 : 100, // and also here
+            duration: 500,
             useNativeDriver: false,
         }).start();
-    };
+    }
 
     const handleDelete = () => {
         setNotes([]);
@@ -164,8 +167,13 @@ const App = () => {
 
         return years;
     };
+
+    const [fadeAnim] = useState(new Animated.Value(0))  // Initial value for opacity: 0
+    const [heightAnim] = useState(new Animated.Value(0));  // Initial value for height: 0
+    const [opacityAnim] = useState(new Animated.Value(0));  // Initial value for opacity: 0
+    const [notesOpacityAnim] = useState(new Animated.Value(0)); // Initial value for opacity: 0
+
     const FadeInView = (props) => {
-        const fadeAnim = useRef(new Animated.Value(0)).current; // Initial value for opacity: 0
 
         React.useEffect(() => {
             Animated.timing(fadeAnim, {
@@ -186,6 +194,67 @@ const App = () => {
             </Animated.View>
         );
     };
+
+    const startExpandAnimation = () => {
+        Animated.timing(
+            heightAnim,
+            {
+                toValue: 130, // change this to whatever height you want the expanded component to be
+                duration: 1000,
+                useNativeDriver: false // because height cannot be animated using the native driver
+            }
+        ).start();
+
+        // Start the opacity animation
+        Animated.timing(
+            opacityAnim,
+            {
+                toValue: 1, // Fully visible
+                duration: 1500,
+                useNativeDriver: true
+            }
+        ).start();
+    };
+
+    useEffect(() => {
+        if (showBudget) startExpandAnimation();
+        else {
+            heightAnim.setValue(0); // Reset the animation if showBudget is false
+            opacityAnim.setValue(0); // Reset the opacity
+        }
+    }, [showBudget]);
+
+
+    const startNotesExpandAnimation = () => {
+        // Start the height animation
+        Animated.timing(
+            heightAnim, // Assuming you're using the same heightAnim for notes as well
+            {
+                toValue: 210, // Height of the expanded component
+                duration: 1000,
+                useNativeDriver: false // height cannot be animated using the native driver
+            }
+        ).start();
+
+        // Start the opacity animation
+        Animated.timing(
+            notesOpacityAnim,
+            {
+                toValue: 1, // Fully visible
+                duration: 1500,
+                useNativeDriver: true
+            }
+        ).start();
+    };
+    useEffect(() => {
+        if (showNotes) startNotesExpandAnimation();
+        else {
+            heightAnim.setValue(0); // Reset the height animation if showNotes is false
+            notesOpacityAnim.setValue(0); // Reset the opacity
+        }
+    }, [showNotes]);
+
+
     const renderHeader = () => {
         let startDate, endDate;
         return (
@@ -205,15 +274,22 @@ const App = () => {
     const [isGreyAreaClicked, setIsGreyAreaClicked] = useState(false);
 
     const handleGreyAreaPress = () => {
+        setActiveTabIcon(activeTab);
         setIsCalendarOpen(false);
         setIsGreyAreaClicked(false);
         setShowNotes(false); // Add this line
-        setShowBudget(false)
+        setShowBudget(false);
     };
 
     const handleNewPickerChange = (value) => {
         setNewPicker(value);
+        if (value === 'Month') {
+            generateMonthPieChartData();
+        } else if (value === 'Year') {
+            generateYearPieChartData();
+        }
     };
+
 
     const handleCalendarPress = (selectedDate) => {
         console.log('----------calendar press ------------');
@@ -241,6 +317,7 @@ const App = () => {
     const [viewMode, setViewMode] = useState('month'); // week or month
     const [currentMonth, setCurrentMonth] = useState(moment().format('YYYY-MM')); // default to current month
     const [activeTab, setActiveTab] = useState('expenses');
+    const [activeTabIcon, setActiveTabIcon] = useState('expenses');
     const [isCalendarOpen, setIsCalendarOpen] = useState(false);
     const handleToggleCalendar = () => {
         setIsCalendarOpen(!isCalendarOpen);
@@ -248,13 +325,16 @@ const App = () => {
 
     useEffect(() => {
         const currentDate = new Date();
+        console.log("========================= currentDate==================== ", currentDate.toDateString())
         const currentDay = currentDate.getDate();
         const currentMonth = currentDate.toLocaleString('default', { month: 'long' });
         const currentYear = currentDate.getFullYear();
-
+        const dateString = `${currentYear}-${currentMonth}-${currentDay}`
+        updateSelectedDate(dateString, currentMonth, currentYear)
         setDate(currentDay.toString());
         setMonth(currentMonth);
         setYear(currentYear.toString());
+        //changeSelectedDateOnMonthOYearChange(`${}`)
     }, []);
 
     const changeMonth = (n) => {
@@ -269,11 +349,13 @@ const App = () => {
         const dates = [];
         let labels = [];
         const format = 'YYYY-MM-DD';
-        const start = moment().startOf('month');
-        const end = moment().endOf('month');
+        console.log("------- selected yaer and month------ ", moment(`${year}-${month}`, 'YYYY-MMM'))
+        let date = moment(`${year}-${month}`, 'YYYY-MMM');
+        const start = date.clone().startOf('month');
+        const end = date.clone().endOf('month');
         const range = Moment.range(start, end);
         Array.from(range.by('days')).map((m) => dates.push(m.format(format)));
-
+        console.log("====================== dates =============== ", dates[0])
         dates.forEach((date) => {
             let sum = 0;
             if (selectedItemIndex !== null) {
@@ -287,7 +369,6 @@ const App = () => {
                     }
                 });
             }
-
             data.push(sum);
             labels.push(date);
         });
@@ -316,8 +397,10 @@ const App = () => {
                 },
             ],
         };
-        const generatePieChartData = (date) => {
+
+        const generateMonthPieChartData = (date) => {
             let totalExpenses = 0;
+            let isExpenseSet = false
             let itemExpenses = navItems.map((item) => {
                 let expense = 0;
                 dates.forEach((date) => {
@@ -332,6 +415,7 @@ const App = () => {
                 };
             });
 
+
             const data = {
                 labels: itemExpenses.map((item) => item.name),
                 datasets: [
@@ -343,8 +427,41 @@ const App = () => {
                 ],
             };
 
-            return data;
+            return [data, totalExpenses];
         };
+
+        const generateYearPieChartData = () => {
+            let totalExpenses = 0;
+            let itemExpenses = navItems.map((item) => {
+                let expense = 0;
+                const startOfYear = moment(year, 'YYYY').startOf('year'); // start date of the selected year
+                const endOfYear = moment(year, 'YYYY').endOf('year'); // end date of the selected year
+                const range = Moment.range(startOfYear, endOfYear);
+                Array.from(range.by('days')).forEach((date) => {
+                    expense += item.dailyExpenses[date.format('YYYY-MM-DD')] || 0;
+                });
+                totalExpenses += expense;
+                return {
+                    name: item.name,
+                    expense: expense,
+                };
+            });
+            console.log(`Total Expenses: ${totalExpenses}`);
+            console.log('Item Expenses:', itemExpenses);
+            const data = {
+                labels: itemExpenses.map((item) => item.name),
+                datasets: [
+                    {
+                        label: '# of Votes',
+                        data: itemExpenses.map((item) => (item.expense / totalExpenses) * 100),
+                        backgroundColor: ['#FF6384', '#36A2EB', 'yellow', 'blue', 'green'],
+                    },
+                ],
+            };
+            console.log('Generated Data for Pie Chart:', data);
+            return [data, totalExpenses];
+        };
+
 
         const chartDataPie = {
             labels: ['Red', 'Blue', 'Yellow', 'Green', 'Purple', 'Orange'],
@@ -372,15 +489,29 @@ const App = () => {
                 },
             ],
         };
+        let piechartData, totalExpenses;
+        if (timePeriod === 'Month') {
+            [piechartData, totalExpenses] = generateMonthPieChartData(selectedDate);
+        } else {
+            [piechartData, totalExpenses] = generateYearPieChartData();
+        }
+
+        if (totalExpenses === 0) {
+            return (
+                <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+                    <Text style={{ color: 'red', fontSize: 20, marginTop: '40%', marginLeft: '10%' }}>No expenses added.Please fill expenses to view stats!</Text>
+                </View>
+            );
+        }
 
         return (
-            <View style={{ padding: 20, flex: 1 }}>
+            <View style={{ flex: 1, marginRight: 15, marginLeft: 5 }}>
                 <View style={styles.chartContainer}>
                     <Line options={options} data={chartData} />
                 </View>
                 <View style={styles.statsContainer}>
                     <View style={{ flex: 1 }}>
-                        <Pie data={generatePieChartData(selectedDate)} />
+                        <Pie data={piechartData} />
                     </View>
                 </View>
             </View>
@@ -415,13 +546,19 @@ const App = () => {
             case 'month':
                 setMonth(value);
                 if (!value) setMonthError('Month is required');
-                else setMonthError('');
+                else {
+                    setMonthError('');
+                    updateSelectedDate(selectedDate, value, year)
+                }
                 //handleDateSelect(moment(selectedDate))
                 break;
             case 'year':
                 setYear(value);
                 if (!value) setYearError('Year is required');
-                else setYearError('');
+                else {
+                    setYearError('');
+                    updateSelectedDate(selectedDate, month, value)
+                }
                 break;
             default:
                 break;
@@ -433,12 +570,26 @@ const App = () => {
         var monthNumber = date.getMonth() + 1;
         return monthNumber < 10 ? '0' + monthNumber : '' + monthNumber;
     }
+
+    const updateSelectedDate = (dayDateString, selectedMonth = month, selectedYear = year) => {
+        let fields = dayDateString.split('-');
+        let date = selectedYear + '-' + getNumericMonth(selectedMonth) + '-' + fields[2];
+        console.log(date);
+        setSelectedDate(date);
+        handleCalendarPress(date);
+        setIsCalendarOpen(false);
+        if (selectedItemIndex !== null) {
+            setAmount(navItems[selectedItemIndex].dailyExpenses[date] || '');
+        }
+    }
+
     const handleDateSelect = (day) => {
-        console.log(day.dateString, '***************');
-        let date = day.dateString.toString();
+        console.log(day, '********dayssssssssssssssssssssssssssssssssssss*******');
+        let dayDateString = day.dateString
         console.log('----------', date);
-        let fields = day.dateString.split('-');
-        date = year + '-' + getNumericMonth(month) + '-' + fields[2];
+        return updateSelectedDate(dayDateString)
+        let fields = dayDateString.split('-');
+        let date = year + '-' + getNumericMonth(month) + '-' + fields[2];
         console.log(date);
         setSelectedDate(date);
         handleCalendarPress(date);
@@ -473,7 +624,15 @@ const App = () => {
                 { name, dailyExpenses: {}, dailyNotes: {}, monthlyBudget: {}, icon: getFirstTwoLetters(name) },
             ]);
             setName('');
-            heightAnimation[name] = useRef(new Animated.Value(0)).current;
+            const updatedHeightAnimations = { ...heightAnimation };
+            updatedHeightAnimations[name] = new Animated.Value(0);
+            console.log('=================== height animation=== add new item ====== ', name, updatedHeightAnimations);
+            setHeightAnimation(updatedHeightAnimations);
+
+            const updatedUnhideNotes = { ...unhideNotes };
+            updatedUnhideNotes[updatedItem.name] = false;
+            setUnhideNotes(updatedUnhideNotes);
+            //heightAnimation[name] = useRef(new Animated.Value(0)).current;
         } else {
             setItemError('Item name already exists!');
         }
@@ -518,25 +677,29 @@ const App = () => {
                     ...updatedNavItems[selectedItemIndex].dailyNotes,
                     [selectedDate]: notes,
                 },
+                icon: updatedNavItems[selectedItemIndex].icon, // Make sure to preserve the icon
                 notes: notes,
             };
 
             updatedNavItems[selectedItemIndex] = updatedItem;
-            const updatedUnhideNotes = { ...unhideNotes };
-            updatedUnhideNotes[updatedItem.name] = false;
             setNavItems(updatedNavItems);
-            setUnhideNotes(updatedUnhideNotes);
             setAmount('');
             setNotes('');
             setShowNotes(false); // Hide the notes container
             setIsCalendarOpen(false); // Hide the calendar
             setIsGreyAreaClicked(false); // Reset the grey area click flag
-            console.log('Notes: ', notes);
-            console.log('Selected Date: ', selectedDate);
 
+            // useEffect(() => {
+            // Object.keys(unhideNotes).forEach(itemName => {
+            // Animated.timing(heightAnimation, {
+            // toValue: unhideNotes[itemName] ? 100 : 0, // change to desired height
+            // duration: 500, // change the duration as you like
+            // useNativeDriver: false,
+            // }).start();
+            // });
+            // }, [unhideNotes]);
         }
     };
-
 
     const handleBudgetSubmitForm = () => {
         if (!date) {
@@ -599,22 +762,32 @@ const App = () => {
         return monthlyExpenses;
     };
     const calculateBudgetAmount = (yearMonth, index) => {
-
-        console.log("kkkkkkkkkk ==== ", yearMonth)
+        console.log('kkkkkkkkkk ==== ', yearMonth);
         let item = navItems[index];
-        if (!item.monthlyBudget[yearMonth]) return 0
-        console.log("mmmmmmmmm ", item.monthlyBudget[yearMonth])
-        return item.monthlyBudget[yearMonth]
+        if (!item.monthlyBudget[yearMonth]) return 0;
+        console.log('mmmmmmmmm ', item.monthlyBudget[yearMonth]);
+        return item.monthlyBudget[yearMonth];
         const monthlyBudget = Object.keys(item.monthlyBudget)
-            .filter((date) => { console.log("kkjjhhgfgfff ===== ", date), date.startsWith(yearMonth) })
+            .filter((date) => {
+                console.log('kkjjhhgfgfff ===== ', date), date.startsWith(yearMonth);
+            })
             .reduce((monthlyTotal, date) => monthlyTotal + item.monthlyBudget[date], 0);
 
-        console.log(monthlyBudget, " ----------------- ")
+        console.log(monthlyBudget, ' ----------------- ');
         return monthlyBudget;
     };
     const slideAnim = useRef(new Animated.Value(-500)).current; // Initial value for x-offset; -500 slides it out of screen to the left
-    const heightAnimation = { 'House Rent': useRef(new Animated.Value(0)).current, Groceries: useRef(new Animated.Value(0)).current };
-
+    //const heightAnimation = { 'House Rent': useRef(new Animated.Value(0)).current, Groceries: useRef(new Animated.Value(0)).current };
+    const [heightAnimation, setHeightAnimation] = useState({ 'House Rent': new Animated.Value(0), Groceries: new Animated.Value(0) });
+    // useEffect(() => {
+    // Object.keys(unhideNotes).forEach(itemName => {
+    // Animated.timing(heightAnimation, {
+    // toValue: unhideNotes[itemName] ? 100 : 0, // change to desired height
+    // duration: 500, // change the duration as you like
+    // useNativeDriver: false,
+    // }).start();
+    // });
+    // }, [unhideNotes]);
     useEffect(() => {
         Animated.spring(slideAnim, {
             toValue: 0,
@@ -623,69 +796,84 @@ const App = () => {
         }).start();
     }, []);
 
+    const onTextLayout = (name, e) => {
+        //if(heightAnimation[name] !== 0) return
+
+        let textHeight = e.nativeEvent.layout.height;
+        console.log(' onlayout event firing? -----', textHeight, '********* height animation', heightAnimation[name]);
+        setTextHeight(textHeight);
+    };
 
     function BudgetBar({ budgetedAmount, expenseAmount }) {
-
         const totalWidth = 100; // the total width of the bar in pixels
-        const barHeight = 18; // the height of the bar in pixels
+        const barHeight = 9; // the height of the bar in pixels
         const overlap = 2; // the overlapping width in pixels
 
-        const expenseWidth = (expenseAmount <= budgetedAmount)
-            ? (expenseAmount / budgetedAmount) * totalWidth
-            : totalWidth;
-        const showBudgetBar = expenseAmount > 0 || budgetedAmount > 0
+        const expenseWidth = expenseAmount <= budgetedAmount ? (expenseAmount / budgetedAmount) * totalWidth : totalWidth;
+        const showBudgetBar = expenseAmount > 0 || budgetedAmount > 0;
         const remainingWidth = totalWidth - expenseWidth;
-
 
         if (showBudgetBar) {
             return (
                 <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', height: barHeight + 20 }}>
-                    {budgetedAmount > 0 && (<View style={{
-                        backgroundColor: '#98fb98', // lighter shade of green
-                        width: `${totalWidth}%`,
-                        height: barHeight,
-                        borderRadius: barHeight / 2,
-                        borderBottomRightRadius: barHeight / 2,
-                        shadowColor: "#000",
-                        shadowOffset: { width: 0, height: 2 },
-                        shadowOpacity: 0.25,
-                        shadowRadius: 3.84,
-                        elevation: 5,
-                        justifyContent: 'center',
-                        // alignItems: 'center',
-                    }}>
-                        {expenseAmount <= budgetedAmount &&
-                            <Text style={{ color: 'black', fontSize: 10, textAlign: 'right', paddingRight: 10 }}>{`$${budgetedAmount - expenseAmount}`}</Text>}
-                    </View>)}
-                    {expenseAmount > 0 && (<View style={{
-                        backgroundColor: '#ff7f7f', // lighter shade of red
-                        width: `${expenseWidth}%`,
-                        height: barHeight,
-                        borderRadius: barHeight / 2,
-                        paddingLeft: 10,
-                        //borderBottomLeftRadius: barHeight / 2,
-                        shadowColor: "#000",
-                        shadowOffset: { width: 0, height: 2 },
-                        shadowOpacity: 0.25,
-                        shadowRadius: 3.84,
-                        elevation: 5,
-                        position: 'absolute',
-                        justifyContent: 'center',
-                        //alignItems: 'center',
-                        left: 0,
-                    }}>
-                        <Text style={{ color: 'white', fontSize: 10 }}>{`$${expenseAmount}`}</Text>
-                    </View>)}
+                    {budgetedAmount > 0 && (
+                        <View
+                            style={{
+                                //backgroundColor: '#98fb98', // lighter shade of green
+                                backgroundColor: '#FF8C00',
+                                width: `${totalWidth}%`,
+                                height: barHeight,
+                                borderRadius: barHeight / 2,
+                                borderBottomRightRadius: barHeight / 2,
+                                shadowColor: '#000',
+                                shadowOffset: { width: 0, height: 2 },
+                                shadowOpacity: 0.25,
+                                shadowRadius: 3.84,
+                                elevation: 5,
+                                justifyContent: 'center',
+                                // alignItems: 'center',
+                            }}
+                        >
+                            {expenseAmount <= budgetedAmount && (
+                                <Text style={{ color: 'black', fontSize: 10, textAlign: 'right', paddingRight: 10 }}>{`$${budgetedAmount - expenseAmount
+                                    }`}</Text>
+                            )}
+                        </View>
+                    )}
+                    {expenseAmount > 0 && (
+                        <View
+                            style={{
+                                //backgroundColor: '#ff7f7f', // lighter shade of red
+                                backgroundColor: '#000000',
+                                width: `${expenseWidth}%`,
+                                height: barHeight,
+                                borderRadius: barHeight / 2,
+                                paddingLeft: 10,
+                                //borderBottomLeftRadius: barHeight / 2,
+                                shadowColor: '#000',
+                                shadowOffset: { width: 0, height: 2 },
+                                shadowOpacity: 0.25,
+                                shadowRadius: 3.84,
+                                elevation: 5,
+                                position: 'absolute',
+                                justifyContent: 'center',
+                                //alignItems: 'center',
+                                left: 0,
+                            }}
+                        >
+                            <Text style={{ color: 'white', fontSize: 10 }}>{`$${expenseAmount}`}</Text>
+                        </View>
+                    )}
                     {expenseAmount > budgetedAmount && budgetedAmount > 0 && <Text style={{ position: 'absolute', right: 0 }}>💥</Text>}
                 </View>
             );
-        }
-        else {
-            <View style={{
-                borderBottomWidth: 1,
-                borderBottomColor: 'rgba(0, 0, 0, 0.25)'
-            }}>
-            </View>
+        } else {
+            <View
+                style={{
+                    borderBottomWidth: 1,
+                    borderBottomColor: 'rgba(0, 0, 0, 0.25)',
+                }}
+            ></View>;
         }
     }
 
@@ -716,6 +904,10 @@ const App = () => {
         );
     };
 
+    const itemAmountForDay = (amount) => {
+        console.log(' ***** day amount ***** ', amount);
+        return !amount ? 0 : amount;
+    };
     const dailyTotal = navItems.reduce((total, item) => total + (item.dailyExpenses[selectedDate] || 0), 0);
     const ExpensesScreen = () => (
         <ScrollView style={styles.container}>
@@ -726,36 +918,38 @@ const App = () => {
                             <Text style={styles.summaryTitleText}>{date + ' ' + month + ' ' + year}</Text>
                         </View>
                         {navItems.slice(0, itemsToShow).map((item, index) => (
-                            <View style={styles.summaryContent} key={index}>
-                                <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                                    {['Groceries', 'House Rent'].includes(item.name) ? (
-                                        <Icon name={item.icon} size={item.name === 'Groceries' ? 20 : 25} color="#89CFF0" style={{ paddingRight: 10 }} />
-                                    ) : (
-                                        <Text style={index === selectedItemIndex ? styles.iconselected : styles.icon}>
-                                            {getFirstTwoLetters(item.name)}
-                                        </Text>
-                                    )}
-                                    <Text style={styles.summaryLabel}>{item.name}</Text>
-                                </View>
-                                <View style={{ flexDirection: 'row', alignItems: 'center', position: 'absolute', marginLeft: 250 }}>
-                                    <Text style={styles.summaryAmount}>{'₹' + (item.dailyExpenses[selectedDate] || 0)}</Text>
-                                    <TouchableOpacity
-                                        onPress={() => {
-                                            console.log("selectedDate: ", selectedDate);
-                                            console.log("Notes for the date: ", item.dailyNotes[selectedDate]);
-                                            console.log("Press event fired for", item.name);
-                                            toggleNotes(item.name);
-                                        }}
-                                        style={{ marginLeft: 10 }}
-                                    >
-                                        {console.log("&&&&", item.name)}
-                                        <Icon name="chevron-down" size={10} color="#000" />
-                                    </TouchableOpacity>
-                                </View>
-                                <Animated.View style={[styles.notesContainer, { height: heightAnimation[item.name] }]}>
-                                    <View style={[styles.notesContainer]}>
-                                        <Text style={styles.notesText}>{item.dailyNotes[selectedDate]}</Text>
+                            <View style={styles.summaryContent}>
+                                <View style={styles.summaryTile} key={index}>
+                                    <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                                        {['Groceries', 'House Rent'].includes(item.name) ? (
+                                            <Icon
+                                                name={item.icon}
+                                                size={item.name === 'Groceries' ? 20 : 25}
+                                                color="#FF8C00"
+                                                style={{ paddingRight: 10 }}
+                                            />
+                                        ) : (
+                                            <Text style={index === selectedItemIndex ? styles.iconselected : styles.icon}>
+                                                {getFirstTwoLetters(item.name)}
+                                            </Text>
+                                        )}
+                                        <Text style={styles.summaryLabel}>{item.name}</Text>
                                     </View>
+                                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                        <Text style={styles.summaryAmount}>{'₹' + itemAmountForDay(item.dailyExpenses[selectedDate])}</Text>
+                                        {item.dailyNotes[selectedDate] && (
+                                            <TouchableOpacity onPress={() => toggleNotes(item.name)} style={{ marginLeft: 10 }}>
+                                                {console.log('&&&&', item.name)}
+                                                <Icon name="chevron-down" size={10} color="#000" />
+                                            </TouchableOpacity>
+                                        )}
+                                    </View>
+                                </View>
+
+                                <Animated.View style={[styles.notesDisplayContainer, { height: heightAnimation[item.name], overflow: 'hidden' }]}>
+                                    <Text onLayout={(e) => onTextLayout(item.name, e)} style={styles.notesText}>
+                                        {item.dailyNotes[selectedDate]}
+                                    </Text>
                                 </Animated.View>
                             </View>
                         ))}
@@ -763,15 +957,16 @@ const App = () => {
                         <View>
                             {navItems.length > itemsToShow && (
                                 <TouchableOpacity onPress={toggleShowMore}>
-                                    <Text style={{ color: '#89CFF0', alignItems: 'right' }}>Show More</Text>
+                                    <Text style={{ color: '#FF8C00', alignItems: 'center', alignSelf: 'center', }}>Show More</Text>
                                 </TouchableOpacity>
                             )}
                             {showMore && (
                                 <TouchableOpacity onPress={toggleShowMore}>
-                                    <Text style={{ color: '#89CFF0', alignItems: 'right' }}>Show Less</Text>
+                                    <Text style={{ color: '#FF8C00', alignItems: 'center', alignSelf: 'center', }}>Show Less</Text>
                                 </TouchableOpacity>
                             )}
                         </View>
+
                         <View style={styles.summarytotalContent}>
                             <Text style={styles.summaryLabel}> Total:</Text>
                             <Text style={styles.summaryAmount}>{'₹' + dailyTotal}</Text>
@@ -783,11 +978,16 @@ const App = () => {
                         <Text style={styles.summaryTitleText}>{month + ', ' + year}</Text>
                     </View>
                     {navItems.slice(0, itemsToShow).map((item, index) => (
-                        <View >
+                        <View>
                             <View style={styles.monthSummaryContent} key={index}>
                                 <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
                                     {['Groceries', 'House Rent'].includes(item.name) ? (
-                                        <Icon name={item.icon} size={item.name === 'Groceries' ? 20 : 25} color="#89CFF0" style={{ paddingRight: 10 }} />
+                                        <Icon
+                                            name={item.icon}
+                                            size={item.name === 'Groceries' ? 20 : 25}
+                                            color="#FF8C00"
+                                            style={{ paddingRight: 10 }}
+                                        />
                                     ) : (
                                         <Text style={index === selectedItemIndex ? styles.iconselected : styles.icon}>
                                             {getFirstTwoLetters(item.name)}
@@ -796,27 +996,27 @@ const App = () => {
                                     <Text style={styles.summaryLabel}>{item.name}</Text>
                                 </View>
                                 <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-
                                     <Text style={styles.summaryAmount}>{'₹' + calculateItemTotalForMonth(currentMonth, index)}</Text>
                                     <View style={{ width: 10 }} />
                                 </View>
-
                             </View>
                             <View style={styles.summaryContent}>
-                                <BudgetBar budgetedAmount={calculateBudgetAmount(month + '-' + year, index)} expenseAmount={calculateItemTotalForMonth(currentMonth, index)} />
+                                <BudgetBar
+                                    budgetedAmount={calculateBudgetAmount(month + '-' + year, index)}
+                                    expenseAmount={calculateItemTotalForMonth(currentMonth, index)}
+                                />
                             </View>
                         </View>
                     ))}
                     <View>
-
                         {navItems.length > itemsToShow && (
                             <TouchableOpacity onPress={toggleShowMore}>
-                                <Text style={{ color: '#89CFF0', alignItems: 'right' }}>Show More</Text>
+                                <Text style={{ color: '#FF8C00', alignItems: 'center', alignSelf: 'center', }}>Show More</Text>
                             </TouchableOpacity>
                         )}
                         {showMore && (
                             <TouchableOpacity onPress={toggleShowMore}>
-                                <Text style={{ color: '#89CFF0', alignItems: 'right' }}>Show Less</Text>
+                                <Text style={{ color: '#FF8C00', alignItems: 'center', alignSelf: 'center', }}>Show Less</Text>
                             </TouchableOpacity>
                         )}
                         <View style={[styles.summarytotalContent, { marginBottom: 10 }]}>
@@ -826,6 +1026,27 @@ const App = () => {
                     </View>
                 </View>
             </View>
+            {/* <View style={styles.centeredView}>
+    <Modal
+        animationType="slide"
+        transparent={true}
+        visible={modalVisible}
+        onRequestClose={() => {
+            setModalVisible(false);
+        }}
+    >
+        <TouchableOpacity
+            style={styles.centeredView}
+            activeOpacity={1}
+            onPress={() => setModalVisible(false)}
+        >
+            <View style={styles.modalView}>
+                <Text style={styles.modalText}>Allocate your budget here!</Text>
+            </View>
+        </TouchableOpacity>
+    </Modal>
+</View> */}
+
         </ScrollView>
     );
 
@@ -833,7 +1054,7 @@ const App = () => {
         <View style={styles.container}>
             <View style={styles.nav}>
                 <TopBar />
-
+                <View style={styles.dummySection} />
                 <View style={styles.navItemsContainer}>
                     {navItems.slice(0, itemsToShow).map((item, index) => (
                         <TouchableOpacity
@@ -849,24 +1070,32 @@ const App = () => {
                                 <Icon
                                     name={item.icon}
                                     size={item.name === 'Groceries' ? 20 : 25}
-                                    color="#89CFF0"
+                                    color="#FF8C00"
                                     style={index === selectedItemIndex ? styles.iconselected : styles.icon}
                                 />
                             ) : (
-                                <Text style={index === selectedItemIndex ? styles.iconselected : styles.icon}>{getFirstTwoLetters(item.name)}</Text>
+                                <Text style={index === selectedItemIndex ? styles.iconselected : styles.icon}>{
+
+                                    getFirstTwoLetters(item.name)}</Text>
                             )}
                             <Text style={index === selectedItemIndex ? styles.navSelectedText : styles.navText}>{item.name}</Text>
                         </TouchableOpacity>
                     ))}
-                    <TextInput value={name} onChangeText={handleInputChange} placeholder="New item" style={styles.input} onSubmitEditing={handleAddNewItem} />
+                    <TextInput
+                        value={name}
+                        onChangeText={handleInputChange}
+                        placeholder="New item"
+                        style={styles.input}
+                        onSubmitEditing={handleAddNewItem}
+                    />
                     {navItems.length > itemsToShow && (
                         <TouchableOpacity onPress={toggleShowMore}>
-                            <Text style={{ color: '#89CFF0', alignItems: 'center' }}>Show More</Text>
+                            <Text style={{ color: '#FF8C00', alignItems: 'center', alignSelf: 'flex-end', }}>Show More</Text>
                         </TouchableOpacity>
                     )}
                     {showMore && (
                         <TouchableOpacity onPress={toggleShowMore}>
-                            <Text style={{ color: '#89CFF0', alignItems: 'center' }}>Show Less</Text>
+                            <Text style={{ color: '#FF8C00', alignItems: 'center', alignSelf: 'center', }}>Show Less</Text>
                         </TouchableOpacity>
                     )}
                 </View>
@@ -880,7 +1109,7 @@ const App = () => {
                         }}
                     >
                         <View style={styles.dateInputContainer}>
-                            {(activeTab === 'expenses' || activeTab === 'allocate' || activeTab === 'budget') && (
+                            {activeTabIcon !== 'stats' && (
                                 <TextInput
                                     style={styles.dateInput}
                                     placeholder="Date"
@@ -930,13 +1159,13 @@ const App = () => {
                                 </View>
                             </TouchableWithoutFeedback>
 
-                            {activeTab === 'stats' && (
+                            {activeTabIcon === 'stats' && (
                                 <TouchableWithoutFeedback onPress={() => { }}>
                                     <View style={styles.dateInput}>
                                         <Picker
                                             style={[styles.picker, !!newPicker && styles.pickerWithValue]}
-                                            selectedValue={newPicker}
-                                            onValueChange={(value) => handleNewPickerChange(value)}
+                                            selectedValue={timePeriod}
+                                            onValueChange={(value) => setTimePeriod(value)}
                                         >
                                             <Picker.Item label="Month" value="Month" />
                                             <Picker.Item label="Year" value="Year" />
@@ -948,94 +1177,98 @@ const App = () => {
                     </TouchableOpacity>
                 </View>
                 {showNotes && (
-                    <View style={styles.notesContainer}>
-                        <View style={styles.textInputWrapper}>
-                            <TextInput
-                                style={styles.notesTextbox}
-                                value={notes}
-                                onChangeText={(text) => {
-                                    setNotes(text);
-                                }}
-                                placeholder="Enter notes..."
-                            />
-                        </View>
-                        <View style={styles.textInputWrapper}>
-                            <TextInput
-                                style={styles.amountTextbox}
-                                value={amount}
-                                onChangeText={(text) => {
-                                    setAmount(text);
-                                    setAmountError('');
-                                }}
-                                placeholder="Enter amount..."
-                            />
-                        </View>
-                        {amountError && <Text style={styles.errorText}>{amountError}</Text>}
-                        <View style={styles.buttonContainer}>
-                            {errorMsg && (
-                                <View style={styles.errorContainer}>
-                                    <Text style={styles.errorText}>{errorMsg}</Text>
-                                </View>
-                            )}
-                            <TouchableOpacity onPress={handleSubmitForm} style={[styles.button, styles.submitButton]}>
-                                <Text style={styles.buttonText}>Submit</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity
-                                onPress={() => {
-                                    setShowNotes(false);
-                                    setIsGreyAreaClicked(false);
-                                    setItemError('');
-                                    setAmountError('');
-                                    setDateError('');
-                                }}
-                                style={[styles.button, styles.cancelButton]}
-                            >
-                                <Text style={styles.cancelbuttonText}>Cancel</Text>
-                            </TouchableOpacity>
-                        </View>
-                    </View>
+                    <Animated.View style={[styles.notesContainer, { height: heightAnim }]}>
+                        <Animated.View style={{ opacity: notesOpacityAnim }}>
+                            <View style={styles.textInputWrapper}>
+                                <TextInput
+                                    style={styles.notesTextbox}
+                                    value={notes}
+                                    onChangeText={(text) => {
+                                        setNotes(text);
+                                    }}
+                                    placeholder="Enter notes..."
+                                />
+                            </View>
+                            <View style={styles.textInputWrapper}>
+                                <TextInput
+                                    style={styles.amountTextbox}
+                                    value={amount}
+                                    onChangeText={(text) => {
+                                        setAmount(text);
+                                        setAmountError('');
+                                    }}
+                                    placeholder="Enter amount..."
+                                />
+                            </View>
+                            {amountError && <Text style={styles.errorText}>{amountError}</Text>}
+                            <View style={styles.buttonContainer}>
+                                {errorMsg && (
+                                    <View style={styles.errorContainer}>
+                                        <Text style={styles.errorText}>{errorMsg}</Text>
+                                    </View>
+                                )}
+                                <TouchableOpacity onPress={handleSubmitForm} style={[styles.button, styles.submitButton]}>
+                                    <Text style={styles.buttonText}>Submit</Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity
+                                    onPress={() => {
+                                        setShowNotes(false);
+                                        setIsGreyAreaClicked(false);
+                                        setItemError('');
+                                        setAmountError('');
+                                        setDateError('');
+                                    }}
+                                    style={[styles.button, styles.cancelButton]}
+                                >
+                                    <Text style={styles.cancelbuttonText}>Cancel</Text>
+                                </TouchableOpacity>
+                            </View>
+                        </Animated.View>
+                    </Animated.View>
                 )}
+
                 {showBudget && (
-                    <View style={styles.notesContainer}>
-                        <View style={styles.textInputWrapper}>
-                            <TextInput
-                                style={styles.amountTextbox}
-                                value={amount}
-                                onChangeText={(text) => {
-                                    setAmount(text);
-                                    setAmountError('');
-                                }}
-                                placeholder="Enter amount..."
-                            />
-                        </View>
-                        {amountError && <Text style={styles.errorText}>{amountError}</Text>}
-                        <View style={styles.buttonContainer}>
-                            {errorMsg && (
-                                <View style={styles.errorContainer}>
-                                    <Text style={styles.errorText}>{errorMsg}</Text>
-                                </View>
-                            )}
-                            <TouchableOpacity onPress={handleBudgetSubmitForm} style={[styles.button, styles.submitButton]}>
-                                <Text style={styles.buttonText}>Submit</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity
-                                onPress={() => {
-                                    setShowBudget(false);
-                                    setIsGreyAreaClicked(false);
-                                    setItemError('');
-                                    setAmountError('');
-                                    setDateError('');
-                                }}
-                                style={[styles.button, styles.cancelButton]}
-                            >
-                                <Text style={styles.cancelbuttonText}>Cancel</Text>
-                            </TouchableOpacity>
-                        </View>
-                    </View>
+                    <Animated.View style={[styles.notesContainer, { height: heightAnim }]}>
+                        <Animated.View style={{ opacity: opacityAnim }}>
+
+                            <View style={styles.textInputWrapper}>
+                                <TextInput
+                                    style={styles.amountTextbox}
+                                    value={amount}
+                                    onChangeText={(text) => {
+                                        setAmount(text);
+                                        setAmountError('');
+                                    }}
+                                    placeholder="Enter amount..."
+                                />
+                            </View>
+                            {amountError && <Text style={styles.errorText}>{amountError}</Text>}
+                            <View style={styles.buttonContainer}>
+                                {errorMsg && (
+                                    <View style={styles.errorContainer}>
+                                        <Text style={styles.errorText}>{errorMsg}</Text>
+                                    </View>
+                                )}
+                                <TouchableOpacity onPress={handleBudgetSubmitForm} style={[styles.button, styles.submitButton]}>
+                                    <Text style={styles.buttonText}>Submit</Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity
+                                    onPress={() => {
+                                        setShowBudget(false);
+                                        setIsGreyAreaClicked(false);
+                                        setItemError('');
+                                        setAmountError('');
+                                        setDateError('');
+                                    }}
+                                    style={[styles.button, styles.cancelButton]}
+                                >
+                                    <Text style={styles.cancelbuttonText}>Cancel</Text>
+                                </TouchableOpacity>
+                            </View>
+                        </Animated.View>
+                    </Animated.View>
                 )}
-
             </View>
-
 
             {isCalendarOpen && (
                 <>
@@ -1073,38 +1306,52 @@ const App = () => {
                         </>
                     )}
 
-                    {activeTab !== 'stats' && <Expenses />}
-                    {activeTab !== 'expenses' && <Stats />}
+                    {activeTab === 'expenses' && <Expenses />}
+                    {activeTab === 'stats' && <Stats />}
 
                     <View style={styles.bottomTabs}>
-                        <TouchableOpacity style={[styles.bottomTab]} onPress={handleBudgetIconClick} >
-                            <Ionicons name="pricetag-outline" size={24} color={activeTab === 'stats' ? '#000' : '#999'} />
+                        <TouchableOpacity style={[styles.bottomTab]} onPress={handleBudgetIconClick}>
+                            <Ionicons name="pricetag-outline" size={24} color={activeTabIcon === 'allocate' ? '#000' : '#999'} />
                             <Text style={styles.tabLabel}>Allocate</Text>
                         </TouchableOpacity>
                         <TouchableOpacity
                             style={[styles.bottomTab, activeTab === 'expenses' && styles.activeTab]}
                             onPress={() => {
                                 setActiveTab('expenses');
-                                console.log('Tab clicked. Active tab:', activeTab);
-
-                            }
-                            }
+                                setActiveTabIcon('expenses');
+                            }}
                         >
-                            <Ionicons name="wallet-outline" size={24} color={activeTab === 'expenses' ? '#000' : '#999'} />
+                            <Ionicons name="wallet-outline" size={24} color={activeTabIcon === 'expenses' ? '#000' : '#999'} />
                             <Text style={styles.tabLabel}>Budget</Text>
                         </TouchableOpacity>
-                        <TouchableOpacity style={[styles.bottomTab, activeTab === 'stats' && styles.activeTab]} onPress={() => setActiveTab('stats')}>
-                            <Ionicons name="stats-chart-outline" size={24} color={activeTab === 'stats' ? '#000' : '#999'} />
+                        <TouchableOpacity
+                            style={[styles.bottomTab, activeTab === 'stats' && styles.activeTab]}
+                            onPress={() => {
+                                setActiveTab('stats');
+                                setActiveTabIcon('stats');
+                            }}
+                        >
+                            <Ionicons name="stats-chart-outline" size={24} color={activeTabIcon === 'stats' ? '#000' : '#999'} />
                             <Text style={styles.tabLabel}>Stats</Text>
                         </TouchableOpacity>
                         <TouchableOpacity style={[styles.bottomTab]} onPress={handleIconClick}>
-                            <Ionicons name="card-outline" size={24} color={activeTab === 'stats' ? '#000' : '#999'} />
+                            <Ionicons name="card-outline" size={24} color={activeTabIcon === 'budget' ? '#000' : '#999'} />
                             <Text style={styles.tabLabel}>Expenses</Text>
                         </TouchableOpacity>
                     </View>
                 </View>
             )}
 
+            {/* <TouchableOpacity onPress={handleIconClick} style={styles.circleIcon}>
+ <View style={styles.circleBackground}>
+ <Icon name="plus" size={44} color="white" />
+ </View>
+ </TouchableOpacity>
+ <TouchableOpacity onPress={handleBudgetIconClick} style={styles.circleBudgetIcon}>
+ <View style={styles.circleBackground}>
+ <Icon name="plus" size={44} color="white" />
+ </View>
+ </TouchableOpacity> */}
         </View>
     );
 };
@@ -1112,7 +1359,7 @@ const App = () => {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#FFFFFF',
+        backgroundColor: 'white',
     },
     modalOverlay: {
         position: 'absolute',
@@ -1130,10 +1377,12 @@ const styles = StyleSheet.create({
         display: 'none',
     },
     nav: {
+        opacity: '95%',
         position: 'sticky',
         zIndex: 998,
         top: 0,
-        backgroundColor: '#F5F5F5',
+        backgroundColor: '#E5E5E5',
+
         //paddingVertical: 10,
     },
     navTitle: {
@@ -1142,11 +1391,22 @@ const styles = StyleSheet.create({
         marginBottom: 20,
         textAlign: 'center',
     },
+    dummySection: {
+        backgroundColor: '#E5E5E5',
+        borderTopLeftRadius: 25,
+        borderTopRightRadius: 25,
+        borderTopWidth: 1,
+        borderTopColor: '#E5E5E5',
+        height: 20,
+        boxShadow: '0px -5px 5px 2px #FFFAF0',
+    },
     navItemsContainer: {
         flexDirection: 'row',
         alignItems: 'left',
         flexWrap: 'wrap',
         marginBottom: 10,
+        marginTop: -15,
+        //boxShadow: '100px -5px 5px 2px #FFFAF0',
     },
     circleIcon: {
         position: 'fixed',
@@ -1159,7 +1419,7 @@ const styles = StyleSheet.create({
         width: 100,
         height: 100,
         borderRadius: 70,
-        backgroundColor: '#89CFF0',
+        backgroundColor: '#FF8C00',
         justifyContent: 'center',
         alignItems: 'center',
         opacity: '50%',
@@ -1185,7 +1445,7 @@ const styles = StyleSheet.create({
     },
     navItemSelected: {
         // backgroundColor: '#aaa',
-        backgroundColor: '#89CFF0',
+        backgroundColor: '#FF8C00',
     },
     shiftedExpenseStatsBar: {
         marginTop: 800, // Adjust the margin top as needed
@@ -1195,10 +1455,13 @@ const styles = StyleSheet.create({
     notesContainer: {
         padding: 10,
         paddingVertical: 12,
-        //marginTop: 3,
+        marginTop: 10,
         paddingLeft: 3.5,
 
         // Add any other styles specific to the notes container
+    },
+    notesDisplayContainer: {
+        paddingLeft: 3.5,
     },
     calendarContainerAbove: {
         //position: "absolute",
@@ -1256,7 +1519,7 @@ const styles = StyleSheet.create({
         borderRadius: 5,
     },
     iconRightMargin: {
-        marginRight: 5,
+        marginRight: 5, // Adjust the spacing as desired
     },
     navSelectedText: {
         fontSize: 16,
@@ -1264,9 +1527,7 @@ const styles = StyleSheet.create({
         fontWeight: 'bold',
     },
     navText: {
-        fontSize: 20,
-        fontFamily: 'Fasthand',
-
+        fontSize: 16,
     },
     input: {
         width: 100,
@@ -1280,22 +1541,21 @@ const styles = StyleSheet.create({
     },
     pageContent: {
         flex: 1,
+        backgroundColor: '#E5E5E5',
         //padding: 20,
     },
     content: {
+        backgroundColor: '#E5E5E5',
         flex: 1,
         padding: 7,
     },
     icon: {
-        color: '#89CFF0',
+        color: '#FF8C00',
         padding: 5,
-        fontWeight: 'bold',
-
     },
     iconselected: {
         padding: 5,
         color: 'white',
-        fontWeight: 'bold'
     },
     iconContainer: {
         flexDirection: 'row',
@@ -1320,7 +1580,6 @@ const styles = StyleSheet.create({
     formTitle: {
         fontSize: 24,
         fontWeight: 'bold',
-        fontFamily: 'Fasthand',
         marginBottom: 20,
     },
     calendarContainer: {
@@ -1336,11 +1595,12 @@ const styles = StyleSheet.create({
     },
 
     summaryContainer: {
-        flex: 1,
+        //flex: 1,
+        //boxShadow: '0px -5px 5px 2px #FFFAF0',
         flexDirection: 'column',
         justifyContent: 'center',
         shadowColor: '#000',
-        //width: 360,
+        width: '100%',
         // marginRight: 5,
         // marginLeft: 5,
         backgroundColor: 'white',
@@ -1360,7 +1620,7 @@ const styles = StyleSheet.create({
         flexDirection: 'column',
         justifyContent: 'center',
         shadowColor: '#000',
-        //width: 360,
+        width: '100%',
         height: 350,
         alignItems: 'center',
         marginRight: 5,
@@ -1382,7 +1642,7 @@ const styles = StyleSheet.create({
         flexDirection: 'column',
         justifyContent: 'center',
         shadowColor: '#000',
-        //width: 360,
+        width: '100%',
         height: 200,
         alignItems: 'center',
         marginRight: 5,
@@ -1413,7 +1673,7 @@ const styles = StyleSheet.create({
         alignSelf: 'stretch',
         justifyContent: 'center',
         color: 'white', // text color
-        backgroundColor: '#AFDFE4', // background color
+        backgroundColor: '#FF8C00', // background color
     },
     summaryTitleText: {
         fontSize: 18,
@@ -1421,9 +1681,23 @@ const styles = StyleSheet.create({
         color: 'white', // text color
         textAlign: 'center',
     },
-    summaryContent: {
+    summaryTile: {
         flex: 1,
         flexDirection: 'row',
+        marginBottom: 10,
+        justifyContent: 'space-between',
+        //width: 310,
+        marginRight: 5,
+        marginLeft: 0,
+        backgroundColor: 'white',
+        padding: 10,
+        // borderBottomWidth: 1, // Add a border at the bottom
+        // borderBottomColor: 'rgba(0, 0, 0, 0.25)', // Specify the color for the border
+        elevation: 0,
+    },
+    summaryContent: {
+        //flex: 1,
+        flexDirection: 'column',
         marginBottom: 10,
         justifyContent: 'space-between',
         //width: 310,
@@ -1436,8 +1710,8 @@ const styles = StyleSheet.create({
         elevation: 0,
     },
     summarytotalContent: {
-        flex: 1,
-        flexDirection: 'row',
+        //flex: 1,
+        flexDirection: 'column',
         marginBottom: 10,
         justifyContent: 'space-between',
         //width: 310,
@@ -1445,7 +1719,6 @@ const styles = StyleSheet.create({
         marginLeft: 0,
         backgroundColor: 'white',
         padding: 10,
-        elevation: 0,
     },
     monthSummaryContent: {
         flex: 1,
@@ -1461,9 +1734,25 @@ const styles = StyleSheet.create({
         borderBottomColor: 'rgba(0, 0, 0, 0.25)', // Specify the color for the border
         elevation: 0,
     },
+    summaryTotal: {
+        flex: 1,
+        flexDirection: 'row',
+        marginBottom: 10,
+        justifyContent: 'space-between',
+        //width: 310,
+        marginRight: 5,
+        marginLeft: 0,
+        backgroundColor: 'white',
+        padding: 10,
+        borderBottomWidth: 0, // Add a border at the bottom
+        borderBottomColor: 'rgba(0, 0, 0, 0.25)', // Specify the color for the border
+        elevation: 0,
+    },
     summaryLabel: {},
     summaryAmount: {
         fontWeight: 'bold',
+        textAlign: 'right', // Add this line to align the text to the right
+        marginRight: 25
     },
     buttonContainer: {
         flexDirection: 'row',
@@ -1476,12 +1765,12 @@ const styles = StyleSheet.create({
     },
     submitButton: {
         marginRight: 10,
-        backgroundColor: '#89CFF0',
+        backgroundColor: '#FF8C00',
     },
     cancelButton: {
         marginLeft: 10,
         backgroundColor: 'white',
-        borderColor: '#89CFF0',
+        borderColor: '#FF8C00',
         borderWidth: 2,
     },
     buttonText: {
@@ -1489,7 +1778,7 @@ const styles = StyleSheet.create({
         fontWeight: 'bold',
     },
     cancelbuttonText: {
-        color: '#89CFF0',
+        color: '#FF8C00',
         fontWeight: 'bold',
     },
     calendarHeader: {
@@ -1502,7 +1791,7 @@ const styles = StyleSheet.create({
         fontSize: 50,
     },
     selectedDateBackground: {
-        backgroundColor: '#89CFF0',
+        backgroundColor: '#FF8C00',
     },
     tabBar: {
         flexDirection: 'row',
@@ -1521,7 +1810,7 @@ const styles = StyleSheet.create({
     },
     activeTab: {
         borderBottomWidth: 4,
-        borderBottomColor: '#89CFF0',
+        borderBottomColor: '#FF8C00',
     },
     inactiveTab: {
         borderBottomWidth: 1,
@@ -1544,10 +1833,10 @@ const styles = StyleSheet.create({
         borderWidth: 0,
         margin: 0,
         padding: 0,
-        height: 40,
     },
     pickerWithValue: {
         borderWidth: 0,
+        // Remove the border when there is a value
     },
 
     bottomTabs: {
@@ -1568,7 +1857,7 @@ const styles = StyleSheet.create({
         shadowOpacity: 0.1,
         shadowRadius: 4,
         elevation: 2,
-        zIndex: 500
+        zIndex: 500,
     },
     bottomTab: {
         flex: 1,
@@ -1585,16 +1874,16 @@ const styles = StyleSheet.create({
     },
 
     topBar: {
-        backgroundColor: '#89CFF0',
-        height: 50,
+        backgroundColor: '#000000',
+        height: 70,
         justifyContent: 'center',
         alignItems: 'center',
-        shadowColor: 'grey', // Customize the light color
+        shadowColor: 'white', // Customize the light color
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.5,
         shadowRadius: 4,
         elevation: 5,
-        marginBottom: 10,
+        marginBottom: -15,
     },
     shineEffect: {
         position: 'absolute',
@@ -1609,9 +1898,16 @@ const styles = StyleSheet.create({
         fontSize: 12,
     },
     logo: {
-        color: '#FFFFFF',
+        position: 'absolute',
+        top: '30%',
+        transform: 'translateY(-30%)',
+        width: '100%',
+        textAlign: 'center',
+        color: '#FF8C00',
         fontFamily: 'YourCustomFont', // Customize the font
         fontSize: 24, // Customize the font size
+        fontWeight: 'bold',
+        //textShadow: '0 0 5px #ffffff, 0 0 10px #ffffff, 0 0 20px #ffffff, 0 0 30px #ff00de',
     },
     errorContainer: {
         marginBottom: 10,
@@ -1627,6 +1923,44 @@ const styles = StyleSheet.create({
         marginBottom: 5,
         fontSize: 12,
         marginLeft: 10,
+    },
+    centeredView: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginTop: 140,
+    },
+    modalView: {
+        margin: 20,
+        backgroundColor: 'white',
+        borderRadius: 20,
+        padding: 35,
+        alignItems: 'center',
+        shadowColor: '#000',
+        shadowOffset: {
+            width: 0,
+            height: 2,
+        },
+        shadowOpacity: 0.25,
+        shadowRadius: 3.84,
+        elevation: 5,
+    },
+    openButton: {
+        backgroundColor: '#F194FF',
+        borderRadius: 20,
+        padding: 10,
+        elevation: 2,
+    },
+    textStyle: {
+        color: 'white',
+        fontWeight: 'bold',
+        textAlign: 'center',
+    },
+    modalText: {
+        marginBottom: 15,
+        fontSize: 20,
+        fontWeight: '100',
+        textAlign: 'center',
     },
 });
 
